@@ -24,14 +24,15 @@ const QUALITY_ATTRIBUTES = [
 
 const DEFAULT_WEIGHTS = { permanence: 0.20, additionality: 0.18, leakageRisk: 0.12, verificationQuality: 0.12, coBenefits: 0.08, methodologyMaturity: 0.10, bufferAdequacy: 0.10, regulatoryAlignment: 0.10 };
 
-// V3 ATTRIBUTE TAXONOMY — percentage-based premiums that scale with methodology base price
+// V3 ATTRIBUTE TAXONOMY — methodology base prices (observed market averages by methodology)
 const METHODOLOGY_BASE = { "REDD+": 9.0, "Cookstove": 14.0, "Renewable Energy": 4.5, "Blue Carbon": 22.0, "Direct Air Capture": 180.0, "Afforestation": 12.0, "Methane Capture": 8.0, "Biochar": 95.0, "Energy Efficiency": 6.0, "Soil Carbon": 18.0 };
-// Percentage adjustments (e.g., 0.08 = +8% of base price)
-const REGION_FACTOR = { "Southeast Asia": 0.0, "East Africa": 0.05, "West Africa": -0.04, "South Asia": -0.06, "Latin America": 0.08, "Europe": 0.12, "North America": 0.15, "Central Africa": -0.06, "Oceania": 0.08 };
-const REGISTRY_FACTOR = { "Verra": 0.0, "Gold Standard": 0.10, "ACR": 0.06, "CAR": 0.02 };
-const VINTAGE_FACTOR = { 2025: 0.12, 2024: 0.06, 2023: 0.0, 2022: -0.10 };
-const PERMANENCE_FACTOR = { high: 0.10, medium: 0.0, low: -0.08 }; // >7=high, 5-7=med, <5=low
-const COBENEFIT_FACTOR = { high: 0.08, medium: 0.0, low: -0.04 };
+// V3 APPROACH B: Zero-centered premiums/discounts relative to market anchor
+// Market price is the anchor (observed). Fair value adjusts up/down based on attribute analysis.
+const REGION_PREMIUM = { "Southeast Asia": -0.02, "East Africa": 0.0, "West Africa": -0.04, "South Asia": -0.05, "Latin America": 0.02, "Europe": 0.04, "North America": 0.06, "Central Africa": -0.06, "Oceania": 0.01 };
+const REGISTRY_PREMIUM = { "Verra": -0.02, "Gold Standard": 0.03, "ACR": 0.01, "CAR": -0.01 };
+const VINTAGE_PREMIUM = { 2025: 0.04, 2024: 0.01, 2023: -0.02, 2022: -0.06 };
+// Attribute quality sensitivity: each point above/below peer average = ±1.2% premium/discount
+const ATTR_SENSITIVITY = 0.012;
 const SDG_COLORS = { 1:"#E5243B", 2:"#DDA63A", 3:"#4C9F38", 4:"#C5192D", 5:"#FF3A21", 6:"#26BDE2", 7:"#FCC30B", 8:"#A21942", 9:"#FD6925", 10:"#DD1367", 11:"#FD9D24", 12:"#BF8B2E", 13:"#3F7E44", 14:"#0A97D9", 15:"#56C02B" };
 const SDG_LABELS = { 1:"No Poverty",2:"Zero Hunger",3:"Good Health",4:"Quality Education",5:"Gender Equality",6:"Clean Water",7:"Affordable Energy",8:"Decent Work",9:"Industry & Innovation",10:"Reduced Inequality",11:"Sustainable Cities",12:"Responsible Consumption",13:"Climate Action",14:"Life Below Water",15:"Life on Land" };
 
@@ -48,125 +49,119 @@ function seededRandom(seed) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// V3 ATTRIBUTE-LEVEL PRICING ENGINE
+// V3 ATTRIBUTE-LEVEL PRICING ENGINE (APPROACH B)
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// KEY INSIGHT: Market price is OBSERVED data (broker quotes, exchange prices).
+// The model's job is to tell you whether the market is pricing a credit correctly
+// given its attributes. Fair value = market price × attribute quality premium × demand signal.
+//
+// FLOW:
+//   1. Market prices are observed (simulated now, broker quotes later)
+//   2. Compute peer averages for each methodology class
+//   3. Fair value = market_price × (1 + attribute_deviation + context_premiums + demand_signal)
+//   4. Signal = fair value vs market price (naturally balanced because some
+//      projects are above-average and some below-average within their peer class)
 
-// Generate simulated demand signals — these represent rolling demand indices for each attribute value.
-// In production these would be derived from transaction data, retirements, RFPs, etc.
-// For now we simulate them from the 25 projects' retirement patterns.
+// Generate simulated demand signals for the heatmap / market overview
 function computeDemandSignals(projects) {
   const rng = seededRandom(42);
-  const signals = {
-    methodology: {},
-    region: {},
-    registry: {},
-    vintage: {},
-    permanenceTier: {},
-    coBenefitTier: {},
-  };
-
-  // Methodology demand — based on aggregate retirement rates across projects
+  const signals = { methodology: {}, region: {}, registry: {}, vintage: {}, permanenceTier: {}, coBenefitTier: {} };
   const methGroups = {};
-  for (const p of projects) {
-    if (!methGroups[p.methodology]) methGroups[p.methodology] = [];
-    methGroups[p.methodology].push(p);
-  }
+  for (const p of projects) { if (!methGroups[p.methodology]) methGroups[p.methodology] = []; methGroups[p.methodology].push(p); }
   for (const [meth, projs] of Object.entries(methGroups)) {
     const totalIssued = projs.reduce((s, p) => s + p.issuedTotal, 0);
     const totalRetired = projs.reduce((s, p) => s + p.retiredTotal, 0);
     const retRate = totalIssued > 0 ? totalRetired / totalIssued : 0.5;
-    // Demand signal: retirement rate normalized around 1.0 with some randomness
     signals.methodology[meth] = +(0.7 + retRate * 0.8 + (rng() - 0.5) * 0.15).toFixed(3);
   }
-
-  // Region demand
   const regGroups = {};
-  for (const p of projects) {
-    if (!regGroups[p.region]) regGroups[p.region] = [];
-    regGroups[p.region].push(p);
-  }
+  for (const p of projects) { if (!regGroups[p.region]) regGroups[p.region] = []; regGroups[p.region].push(p); }
   for (const [reg, projs] of Object.entries(regGroups)) {
     const totalRetired = projs.reduce((s, p) => s + p.retiredTotal, 0);
     const totalIssued = projs.reduce((s, p) => s + p.issuedTotal, 0);
     const retRate = totalIssued > 0 ? totalRetired / totalIssued : 0.5;
     signals.region[reg] = +(0.75 + retRate * 0.6 + (rng() - 0.5) * 0.1).toFixed(3);
   }
-  // Fill in any regions without projects
   for (const r of REGIONS) if (!signals.region[r]) signals.region[r] = +(0.85 + (rng() - 0.5) * 0.2).toFixed(3);
-
-  // Registry demand
   for (const reg of REGISTRIES) {
     const projs = projects.filter(p => p.registry === reg);
     if (projs.length === 0) { signals.registry[reg] = 1.0; continue; }
     const retRate = projs.reduce((s,p)=>s+p.retiredTotal,0) / Math.max(1, projs.reduce((s,p)=>s+p.issuedTotal,0));
     signals.registry[reg] = +(0.8 + retRate * 0.5 + (rng() - 0.5) * 0.1).toFixed(3);
   }
-
-  // Vintage demand — newer = more demand
   signals.vintage = { 2025: 1.25, 2024: 1.12, 2023: 0.95, 2022: 0.78 };
-
-  // Permanence tier demand — high permanence in high demand due to regulatory shift
   signals.permanenceTier = { high: 1.20, medium: 0.95, low: 0.80 };
-
-  // Co-benefit tier demand
   signals.coBenefitTier = { high: 1.15, medium: 1.00, low: 0.85 };
-
   return signals;
 }
 
 function getPermanenceTier(score) { return score >= 8 ? "high" : score >= 5 ? "medium" : "low"; }
 function getCoBenefitTier(score) { return score >= 8 ? "high" : score >= 5 ? "medium" : "low"; }
 
-// V3 Fair Value: methodology base × multiplicative attribute adjustments × demand signals
-function calculateFairValueV3(project, demandSignals, buyerWeights) {
-  // Layer 1: Market fair value (objective)
-  // Start with methodology base, then apply percentage-based attribute adjustments
-  const methBase = METHODOLOGY_BASE[project.methodology];
-  const methDemand = demandSignals.methodology[project.methodology] || 1.0;
+// Compute peer average attribute scores for each methodology class
+function computePeerAverages(projects) {
+  const methGroups = {};
+  for (const p of projects) { if (!methGroups[p.methodology]) methGroups[p.methodology] = []; methGroups[p.methodology].push(p); }
+  const averages = {};
+  for (const [meth, projs] of Object.entries(methGroups)) {
+    const avg = {};
+    for (const a of QUALITY_ATTRIBUTES) {
+      avg[a.key] = projs.reduce((s, p) => s + p.attributes[a.key], 0) / projs.length;
+    }
+    averages[meth] = avg;
+  }
+  return averages;
+}
 
-  const regionFactor = REGION_FACTOR[project.region] || 0;
-  const regionDemand = demandSignals.region[project.region] || 1.0;
+// Compute dataset-average retirement rate for centering demand signals
+function computeAvgRetirementRate(projects) {
+  return projects.reduce((s, p) => s + (p.retiredTotal / Math.max(1, p.issuedTotal)), 0) / projects.length;
+}
 
-  const registryFactor = REGISTRY_FACTOR[project.registry] || 0;
-  const registryDemand = demandSignals.registry[project.registry] || 1.0;
+// V3 Fair Value (Approach B): market price × (1 + attribute adjustment + context premiums + demand signal)
+// Market price is the anchor; the model adds alpha through attribute-level analysis.
+function calculateFairValueV3(project, currentMarketPrice, peerAverages, avgRetRate, buyerWeights) {
+  const peerAvg = peerAverages[project.methodology] || {};
 
-  const vintFactor = VINTAGE_FACTOR[project.vintage] || 0;
-  const vintDemand = demandSignals.vintage[project.vintage] || 1.0;
+  // Layer 1: Attribute quality premium — how does this project compare to methodology peers?
+  let attrDeviation = 0;
+  const attrBreakdown = [];
+  for (const a of QUALITY_ATTRIBUTES) {
+    const pAvg = peerAvg[a.key] || 5;
+    const deviation = project.attributes[a.key] - pAvg;
+    const contribution = deviation * ATTR_SENSITIVITY;
+    attrDeviation += contribution;
+    attrBreakdown.push({ key: a.key, label: a.label, score: project.attributes[a.key], peerAvg: +pAvg.toFixed(1), deviation: +deviation.toFixed(1), pct: +(contribution * 100).toFixed(1) });
+  }
 
-  const permTier = getPermanenceTier(project.attributes.permanence);
-  const permFactor = PERMANENCE_FACTOR[permTier];
-  const permDemand = demandSignals.permanenceTier[permTier] || 1.0;
+  // Context premiums (region, registry, vintage)
+  const regionPrem = REGION_PREMIUM[project.region] || 0;
+  const registryPrem = REGISTRY_PREMIUM[project.registry] || 0;
+  const vintagePrem = VINTAGE_PREMIUM[project.vintage] || 0;
 
-  const cbTier = getCoBenefitTier(project.attributes.coBenefits);
-  const cbFactor = COBENEFIT_FACTOR[cbTier];
-  const cbDemand = demandSignals.coBenefitTier[cbTier] || 1.0;
+  // Demand signal: project's retirement rate vs dataset average
+  const retRate = project.issuedTotal > 0 ? project.retiredTotal / project.issuedTotal : 0.5;
+  const demandAdj = (retRate - avgRetRate) * 0.15;
 
-  // Each attribute contributes a % adjustment to the base, weighted by its demand signal
-  // e.g., Gold Standard (+10%) with demand 1.1× → contributes +11% to base
-  const methContrib = +(methBase * methDemand).toFixed(2);
-  const regionContrib = +(methBase * regionFactor * regionDemand).toFixed(2);
-  const registryContrib = +(methBase * registryFactor * registryDemand).toFixed(2);
-  const vintageContrib = +(methBase * vintFactor * vintDemand).toFixed(2);
-  const permContrib = +(methBase * permFactor * permDemand).toFixed(2);
-  const cbContrib = +(methBase * cbFactor * cbDemand).toFixed(2);
-
-  const marketFairValue = +(methContrib + regionContrib + registryContrib + vintageContrib + permContrib + cbContrib).toFixed(2);
+  // Total premium/discount over market price
+  const totalAdj = attrDeviation + regionPrem + registryPrem + vintagePrem + demandAdj;
+  const marketFairValue = +(currentMarketPrice * (1 + totalAdj)).toFixed(2);
 
   // Layer 2: Buyer-adjusted value (subjective — based on quality weights)
   let weightedQuality = 0;
   for (const a of QUALITY_ATTRIBUTES) weightedQuality += (project.attributes[a.key] / 10) * (buyerWeights[a.key] || 0.125);
-  // Quality adjustment: tighter range, +/- 12% based on buyer preference alignment
   const qualityMultiplier = +(0.88 + weightedQuality * 0.24).toFixed(3);
   const buyerAdjustedValue = +(marketFairValue * qualityMultiplier).toFixed(2);
 
-  // Waterfall decomposition
+  // Waterfall decomposition (from market price → fair value)
   const waterfall = [
-    { factor: "Methodology", label: `${project.methodology}`, value: +methContrib.toFixed(2), demand: methDemand },
-    { factor: "Geography", label: `${project.region} (${regionFactor >= 0 ? "+" : ""}${(regionFactor * 100).toFixed(0)}%)`, value: +regionContrib.toFixed(2), demand: regionDemand },
-    { factor: "Registry", label: `${project.registry} (${registryFactor >= 0 ? "+" : ""}${(registryFactor * 100).toFixed(0)}%)`, value: +registryContrib.toFixed(2), demand: registryDemand },
-    { factor: "Vintage", label: `${project.vintage} (${vintFactor >= 0 ? "+" : ""}${(vintFactor * 100).toFixed(0)}%)`, value: +vintageContrib.toFixed(2), demand: vintDemand },
-    { factor: "Permanence", label: `${permTier} (${permFactor >= 0 ? "+" : ""}${(permFactor * 100).toFixed(0)}%)`, value: +permContrib.toFixed(2), demand: permDemand },
-    { factor: "Co-Benefits", label: `${cbTier} (${cbFactor >= 0 ? "+" : ""}${(cbFactor * 100).toFixed(0)}%)`, value: +cbContrib.toFixed(2), demand: cbDemand },
+    { factor: "Market Price", label: "Current observed", value: +currentMarketPrice.toFixed(2), demand: null },
+    { factor: "Quality vs Peers", label: `${(attrDeviation >= 0 ? "+" : "")}${(attrDeviation * 100).toFixed(1)}%`, value: +(currentMarketPrice * attrDeviation).toFixed(2), demand: null },
+    { factor: "Geography", label: `${project.region} (${regionPrem >= 0 ? "+" : ""}${(regionPrem * 100).toFixed(0)}%)`, value: +(currentMarketPrice * regionPrem).toFixed(2), demand: null },
+    { factor: "Registry", label: `${project.registry} (${registryPrem >= 0 ? "+" : ""}${(registryPrem * 100).toFixed(0)}%)`, value: +(currentMarketPrice * registryPrem).toFixed(2), demand: null },
+    { factor: "Vintage", label: `${project.vintage} (${vintagePrem >= 0 ? "+" : ""}${(vintagePrem * 100).toFixed(0)}%)`, value: +(currentMarketPrice * vintagePrem).toFixed(2), demand: null },
+    { factor: "Demand Signal", label: `Ret. rate ${(retRate * 100).toFixed(0)}% (${demandAdj >= 0 ? "+" : ""}${(demandAdj * 100).toFixed(1)}%)`, value: +(currentMarketPrice * demandAdj).toFixed(2), demand: null },
   ];
 
   return {
@@ -174,20 +169,22 @@ function calculateFairValueV3(project, demandSignals, buyerWeights) {
     buyerAdjustedValue,
     qualityMultiplier: +qualityMultiplier.toFixed(3),
     waterfall,
+    attrBreakdown,
+    totalAdj: +(totalAdj * 100).toFixed(1),
   };
 }
 
+// Market price history: simulated from methodology base (represents observed broker/exchange data)
+// In production this would be replaced by actual market data feeds
 function generatePriceHistory(basePrice, volatility, trend, seed) {
   const rng = seededRandom(seed);
   const data = [];
   const start = new Date(2024, 0);
-  // More realistic starting price: wider initial range
   let price = basePrice * (0.70 + rng() * 0.35);
   for (let i = 0; i < 24; i++) {
     const d = new Date(start); d.setMonth(d.getMonth() + i);
     const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-    // Higher volatility: larger random swings + occasional jumps
-    const jump = rng() > 0.92 ? (rng() - 0.5) * 0.15 * basePrice : 0; // 8% chance of price shock
+    const jump = rng() > 0.92 ? (rng() - 0.5) * 0.15 * basePrice : 0;
     price += (rng() - 0.48) * volatility * basePrice * 1.8 + trend * basePrice * 0.015 + jump;
     price = Math.max(basePrice * 0.25, price);
     const issuance = Math.floor(5000 + rng() * 45000);
@@ -236,20 +233,25 @@ const RAW_PROJECTS = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 function enrichProjects(buyerWeights, demandSignals) {
+  // Pre-compute peer averages and dataset-average retirement rate
+  const peerAverages = computePeerAverages(RAW_PROJECTS);
+  const avgRetRate = computeAvgRetirementRate(RAW_PROJECTS);
+
   return RAW_PROJECTS.map((p) => {
-    const pricing = calculateFairValueV3(p, demandSignals, buyerWeights);
+    // Step 1: Generate market price history (simulated observed data)
     const priceHistory = generatePriceHistory(METHODOLOGY_BASE[p.methodology], p.volatility, p.trend, p.id * 1337);
     const currentPrice = priceHistory[priceHistory.length - 1].marketPrice;
 
-    // Spread is based on buyer-adjusted fair value
+    // Step 2: Calculate fair value anchored to market price
+    const pricing = calculateFairValueV3(p, currentPrice, peerAverages, avgRetRate, buyerWeights);
+
+    // Step 3: Signal from buyer-adjusted fair value vs market price
     const spread = +((pricing.buyerAdjustedValue - currentPrice) / currentPrice * 100).toFixed(1);
     const signal = spread > 8 ? "BUY" : spread < -8 ? "SELL" : "HOLD";
     const overallScore = +(QUALITY_ATTRIBUTES.reduce((s, a) => s + p.attributes[a.key] * buyerWeights[a.key], 0)).toFixed(1);
 
-    // Demand signals from price history
-    const totalRet = priceHistory.reduce((s,d) => s + d.retirement, 0);
-    const totalIss = priceHistory.reduce((s,d) => s + d.issuance, 0);
-    const retirementRate = totalIss > 0 ? +((totalRet / totalIss) * 100).toFixed(0) : 0;
+    // Demand signals from retirement data
+    const retirementRate = p.issuedTotal > 0 ? +((p.retiredTotal / p.issuedTotal) * 100).toFixed(0) : 0;
     const demandSignal = retirementRate > 75 ? "Strong" : retirementRate > 50 ? "Moderate" : "Weak";
     const recent3 = priceHistory.slice(-3).reduce((s,d) => s + d.marketPrice, 0) / 3;
     const prior3 = priceHistory.slice(-6, -3).reduce((s,d) => s + d.marketPrice, 0) / 3;
@@ -265,6 +267,8 @@ function enrichProjects(buyerWeights, demandSignals) {
       buyerAdjustedValue: pricing.buyerAdjustedValue,
       qualityMultiplier: pricing.qualityMultiplier,
       waterfall: pricing.waterfall,
+      attrBreakdown: pricing.attrBreakdown,
+      totalAdj: pricing.totalAdj,
       fairValue: pricing.buyerAdjustedValue, // backward compat
       currentPrice, priceHistory, spread, signal, overallScore,
       retirementRate, demandSignal, momentum, priceConfidence,
@@ -344,51 +348,61 @@ function SectionCard({ title, subtitle, children, className = "", action }) {
 // V3 WATERFALL CHART — shows attribute contributions to fair value
 // ═══════════════════════════════════════════════════════════════════════════
 
-function WaterfallChart({ waterfall, marketFairValue, buyerAdjustedValue, qualityMultiplier }) {
-  // Build cumulative waterfall data
-  let running = 0;
-  const data = waterfall.map(w => {
+function WaterfallChart({ waterfall, marketFairValue, buyerAdjustedValue, qualityMultiplier, currentPrice }) {
+  // Approach B waterfall: start from market price, show each adjustment, end at fair value
+  // waterfall[0] is "Market Price" (the anchor), rest are adjustments
+  const marketPriceVal = waterfall[0]?.value || currentPrice || 0;
+  const adjustments = waterfall.slice(1); // skip the market price entry
+
+  let running = marketPriceVal;
+  const data = [
+    { factor: "Market Price", label: `$${marketPriceVal.toFixed(2)}`, start: 0, end: marketPriceVal, value: marketPriceVal, display: marketPriceVal, isBase: true },
+  ];
+  for (const w of adjustments) {
     const start = running;
     running += w.value;
-    return { ...w, start: +start.toFixed(2), end: +running.toFixed(2), display: w.value };
-  });
-  // Add quality adjustment bar
+    data.push({ ...w, start: +start.toFixed(2), end: +running.toFixed(2), display: w.value, isBase: false });
+  }
+  // Add quality adjustment bar (buyer preference overlay)
   const qualAdj = +(buyerAdjustedValue - marketFairValue).toFixed(2);
-  data.push({ factor: "Quality Adj.", label: `×${qualityMultiplier}`, start: +running.toFixed(2), end: +buyerAdjustedValue.toFixed(2), value: qualAdj, display: qualAdj, demand: qualityMultiplier });
+  data.push({ factor: "Buyer Pref.", label: `×${qualityMultiplier}`, start: +running.toFixed(2), end: +buyerAdjustedValue.toFixed(2), value: qualAdj, display: qualAdj, isBase: false });
 
-  const maxVal = Math.max(...data.map(d => Math.max(d.start, d.end))) * 1.15;
-  const minVal = Math.min(0, ...data.map(d => Math.min(d.start, d.end))) * 1.1;
+  const maxVal = Math.max(...data.map(d => Math.max(d.start, d.end))) * 1.1;
+  const minVal = Math.min(0, ...data.map(d => Math.min(d.start, d.end)));
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-2">
-        <span className="text-xs text-gray-500">Market Fair Value: <strong className="text-gray-800">${marketFairValue}</strong></span>
+        <span className="text-xs text-gray-500">Market Price: <strong className="text-gray-800">${currentPrice?.toFixed(2) || marketPriceVal.toFixed(2)}</strong></span>
+        <span className="text-gray-300">→</span>
+        <span className="text-xs text-gray-500">Model Fair Value: <strong className="text-gray-800">${marketFairValue}</strong></span>
         <span className="text-gray-300">→</span>
         <span className="text-xs text-gray-500">Buyer-Adjusted: <strong className="text-blue-700">${buyerAdjustedValue}</strong></span>
       </div>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} margin={{ top: 10, right: 10, bottom: 5, left: 10 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="factor" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${v}`} domain={[minVal, maxVal]} />
+          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${v.toFixed(2)}`} domain={[minVal, maxVal]} />
           <Tooltip content={({ active, payload }) => {
             if (!active || !payload || !payload[0]) return null;
             const d = payload[0].payload;
             return (
               <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
                 <p className="font-bold text-gray-800">{d.factor}: {d.label}</p>
-                <p className="text-gray-600">Contribution: <strong>${d.value > 0 ? "+" : ""}{d.value}</strong></p>
-                <p className="text-gray-500">Demand Signal: {d.demand?.toFixed ? d.demand.toFixed(2) + "×" : d.demand}</p>
-                <p className="text-gray-500">Running Total: ${d.end}</p>
+                {d.isBase ? (
+                  <p className="text-gray-600">Observed market price</p>
+                ) : (
+                  <p className="text-gray-600">Adjustment: <strong>{d.value > 0 ? "+" : ""}${d.value.toFixed(2)}</strong></p>
+                )}
+                <p className="text-gray-500">Running Total: ${d.end.toFixed(2)}</p>
               </div>
             );
           }} />
-          {/* Invisible bar for stacking offset */}
           <Bar dataKey="start" stackId="a" fill="transparent" />
-          {/* Visible bar = value on top of start */}
           <Bar dataKey="display" stackId="a" radius={[3, 3, 0, 0]}>
             {data.map((d, i) => (
-              <Cell key={i} fill={d.value >= 0 ? (d.factor === "Quality Adj." ? "#6366F1" : "#10B981") : "#EF4444"} />
+              <Cell key={i} fill={d.isBase ? "#6B7280" : d.factor === "Buyer Pref." ? "#6366F1" : d.value >= 0 ? "#10B981" : "#EF4444"} />
             ))}
           </Bar>
         </BarChart>
@@ -760,19 +774,18 @@ function ProjectEvaluationTab({ projects, profile, weights, portfolio, setPortfo
                     marketFairValue={selected.marketFairValue}
                     buyerAdjustedValue={selected.buyerAdjustedValue}
                     qualityMultiplier={selected.qualityMultiplier}
+                    currentPrice={selected.currentPrice}
                   />
 
                   {/* Attribute contributions table */}
                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    <p className="text-xs font-bold text-gray-700 mb-2">Price Factor Breakdown</p>
+                    <p className="text-xs font-bold text-gray-700 mb-2">Fair Value Decomposition</p>
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-gray-200">
                           <th className="text-left py-1 text-gray-500">Factor</th>
-                          <th className="text-left py-1 text-gray-500">Value</th>
-                          <th className="text-right py-1 text-gray-500">Demand</th>
-                          <th className="text-right py-1 text-gray-500">$ Contribution</th>
-                          <th className="text-right py-1 text-gray-500">% of Fair Value</th>
+                          <th className="text-left py-1 text-gray-500">Detail</th>
+                          <th className="text-right py-1 text-gray-500">$ Adjustment</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -780,21 +793,18 @@ function ProjectEvaluationTab({ projects, profile, weights, portfolio, setPortfo
                           <tr key={w.factor} className="border-b border-gray-100">
                             <td className="py-1.5 font-medium text-gray-800">{w.factor}</td>
                             <td className="py-1.5 text-gray-600">{w.label}</td>
-                            <td className="py-1.5 text-right font-mono">{w.demand.toFixed(2)}×</td>
-                            <td className={`py-1.5 text-right font-bold ${w.value >= 0 ? "text-emerald-600" : "text-red-600"}`}>{w.value >= 0 ? "+" : ""}${w.value.toFixed(2)}</td>
-                            <td className="py-1.5 text-right font-mono text-gray-500">{selected.marketFairValue > 0 ? ((w.value / selected.marketFairValue) * 100).toFixed(0) : 0}%</td>
+                            <td className={`py-1.5 text-right font-bold ${w.factor === "Market Price" ? "text-gray-800" : w.value >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                              {w.factor === "Market Price" ? `$${w.value.toFixed(2)}` : `${w.value >= 0 ? "+" : ""}$${w.value.toFixed(2)}`}
+                            </td>
                           </tr>
                         ))}
                         <tr className="border-t-2 border-gray-300">
-                          <td className="py-1.5 font-bold text-gray-800" colSpan={3}>Market Fair Value</td>
+                          <td className="py-1.5 font-bold text-gray-800" colSpan={2}>Model Fair Value ({selected.totalAdj >= 0 ? "+" : ""}{selected.totalAdj}% vs market)</td>
                           <td className="py-1.5 text-right font-bold text-gray-800">${selected.marketFairValue}</td>
-                          <td className="py-1.5 text-right font-mono text-gray-500">100%</td>
                         </tr>
                         <tr>
-                          <td className="py-1.5 font-bold text-indigo-700" colSpan={2}>Quality Adjustment</td>
-                          <td className="py-1.5 text-right font-mono text-indigo-600">×{selected.qualityMultiplier}</td>
+                          <td className="py-1.5 font-bold text-indigo-700" colSpan={2}>Buyer Preference Adjustment (×{selected.qualityMultiplier})</td>
                           <td className="py-1.5 text-right font-bold text-indigo-700">${selected.buyerAdjustedValue}</td>
-                          <td></td>
                         </tr>
                       </tbody>
                     </table>
