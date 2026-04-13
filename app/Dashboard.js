@@ -24,13 +24,14 @@ const QUALITY_ATTRIBUTES = [
 
 const DEFAULT_WEIGHTS = { permanence: 0.20, additionality: 0.18, leakageRisk: 0.12, verificationQuality: 0.12, coBenefits: 0.08, methodologyMaturity: 0.10, bufferAdequacy: 0.10, regulatoryAlignment: 0.10 };
 
-// V3 ATTRIBUTE TAXONOMY — each attribute dimension has discrete values with base price contributions
+// V3 ATTRIBUTE TAXONOMY — percentage-based premiums that scale with methodology base price
 const METHODOLOGY_BASE = { "REDD+": 9.0, "Cookstove": 14.0, "Renewable Energy": 4.5, "Blue Carbon": 22.0, "Direct Air Capture": 180.0, "Afforestation": 12.0, "Methane Capture": 8.0, "Biochar": 95.0, "Energy Efficiency": 6.0, "Soil Carbon": 18.0 };
-const REGION_PREMIUM = { "Southeast Asia": 0.0, "East Africa": 0.5, "West Africa": -0.3, "South Asia": -0.8, "Latin America": 0.8, "Europe": 1.5, "North America": 2.5, "Central Africa": -0.5, "Oceania": 1.0 };
-const REGISTRY_PREMIUM = { "Verra": 0.0, "Gold Standard": 1.2, "ACR": 0.8, "CAR": 0.3 };
-const VINTAGE_PREMIUM = { 2025: 2.5, 2024: 1.5, 2023: 0.0, 2022: -1.5 };
-const PERMANENCE_TIER = { high: 3.0, medium: 0.5, low: -1.5 }; // >7=high, 5-7=med, <5=low
-const COBENEFIT_TIER = { high: 2.0, medium: 0.5, low: -0.5 };
+// Percentage adjustments (e.g., 0.08 = +8% of base price)
+const REGION_FACTOR = { "Southeast Asia": 0.0, "East Africa": 0.05, "West Africa": -0.04, "South Asia": -0.06, "Latin America": 0.08, "Europe": 0.12, "North America": 0.15, "Central Africa": -0.06, "Oceania": 0.08 };
+const REGISTRY_FACTOR = { "Verra": 0.0, "Gold Standard": 0.10, "ACR": 0.06, "CAR": 0.02 };
+const VINTAGE_FACTOR = { 2025: 0.12, 2024: 0.06, 2023: 0.0, 2022: -0.10 };
+const PERMANENCE_FACTOR = { high: 0.10, medium: 0.0, low: -0.08 }; // >7=high, 5-7=med, <5=low
+const COBENEFIT_FACTOR = { high: 0.08, medium: 0.0, low: -0.04 };
 const SDG_COLORS = { 1:"#E5243B", 2:"#DDA63A", 3:"#4C9F38", 4:"#C5192D", 5:"#FF3A21", 6:"#26BDE2", 7:"#FCC30B", 8:"#A21942", 9:"#FD6925", 10:"#DD1367", 11:"#FD9D24", 12:"#BF8B2E", 13:"#3F7E44", 14:"#0A97D9", 15:"#56C02B" };
 const SDG_LABELS = { 1:"No Poverty",2:"Zero Hunger",3:"Good Health",4:"Quality Education",5:"Gender Equality",6:"Clean Water",7:"Affordable Energy",8:"Decent Work",9:"Industry & Innovation",10:"Reduced Inequality",11:"Sustainable Cities",12:"Responsible Consumption",13:"Climate Action",14:"Life Below Water",15:"Life on Land" };
 
@@ -116,53 +117,56 @@ function computeDemandSignals(projects) {
 function getPermanenceTier(score) { return score >= 8 ? "high" : score >= 5 ? "medium" : "low"; }
 function getCoBenefitTier(score) { return score >= 8 ? "high" : score >= 5 ? "medium" : "low"; }
 
-// V3 Fair Value: sum of attribute-level contributions × demand signals
+// V3 Fair Value: methodology base × multiplicative attribute adjustments × demand signals
 function calculateFairValueV3(project, demandSignals, buyerWeights) {
-  // Layer 1: Market fair value (objective — based on attribute factors × demand signals)
+  // Layer 1: Market fair value (objective)
+  // Start with methodology base, then apply percentage-based attribute adjustments
   const methBase = METHODOLOGY_BASE[project.methodology];
   const methDemand = demandSignals.methodology[project.methodology] || 1.0;
-  const methContrib = methBase * methDemand;
 
-  const regionPrem = REGION_PREMIUM[project.region] || 0;
+  const regionFactor = REGION_FACTOR[project.region] || 0;
   const regionDemand = demandSignals.region[project.region] || 1.0;
-  const regionContrib = regionPrem * regionDemand;
 
-  const registryPrem = REGISTRY_PREMIUM[project.registry] || 0;
+  const registryFactor = REGISTRY_FACTOR[project.registry] || 0;
   const registryDemand = demandSignals.registry[project.registry] || 1.0;
-  const registryContrib = registryPrem * registryDemand;
 
-  const vintPrem = VINTAGE_PREMIUM[project.vintage] || 0;
+  const vintFactor = VINTAGE_FACTOR[project.vintage] || 0;
   const vintDemand = demandSignals.vintage[project.vintage] || 1.0;
-  const vintageContrib = vintPrem * vintDemand;
 
   const permTier = getPermanenceTier(project.attributes.permanence);
-  const permPrem = PERMANENCE_TIER[permTier];
+  const permFactor = PERMANENCE_FACTOR[permTier];
   const permDemand = demandSignals.permanenceTier[permTier] || 1.0;
-  const permContrib = permPrem * permDemand;
 
   const cbTier = getCoBenefitTier(project.attributes.coBenefits);
-  const cbPrem = COBENEFIT_TIER[cbTier];
+  const cbFactor = COBENEFIT_FACTOR[cbTier];
   const cbDemand = demandSignals.coBenefitTier[cbTier] || 1.0;
-  const cbContrib = cbPrem * cbDemand;
 
-  const marketFairValue = methContrib + regionContrib + registryContrib + vintageContrib + permContrib + cbContrib;
+  // Each attribute contributes a % adjustment to the base, weighted by its demand signal
+  // e.g., Gold Standard (+10%) with demand 1.1× → contributes +11% to base
+  const methContrib = +(methBase * methDemand).toFixed(2);
+  const regionContrib = +(methBase * regionFactor * regionDemand).toFixed(2);
+  const registryContrib = +(methBase * registryFactor * registryDemand).toFixed(2);
+  const vintageContrib = +(methBase * vintFactor * vintDemand).toFixed(2);
+  const permContrib = +(methBase * permFactor * permDemand).toFixed(2);
+  const cbContrib = +(methBase * cbFactor * cbDemand).toFixed(2);
+
+  const marketFairValue = +(methContrib + regionContrib + registryContrib + vintageContrib + permContrib + cbContrib).toFixed(2);
 
   // Layer 2: Buyer-adjusted value (subjective — based on quality weights)
-  // Quality multiplier represents how well the project matches buyer's priorities
   let weightedQuality = 0;
   for (const a of QUALITY_ATTRIBUTES) weightedQuality += (project.attributes[a.key] / 10) * (buyerWeights[a.key] || 0.125);
-  // Quality adjustment: +/- 25% based on buyer preference alignment
-  const qualityMultiplier = 0.75 + weightedQuality * 0.5;
+  // Quality adjustment: tighter range, +/- 12% based on buyer preference alignment
+  const qualityMultiplier = +(0.88 + weightedQuality * 0.24).toFixed(3);
   const buyerAdjustedValue = +(marketFairValue * qualityMultiplier).toFixed(2);
 
   // Waterfall decomposition
   const waterfall = [
     { factor: "Methodology", label: `${project.methodology}`, value: +methContrib.toFixed(2), demand: methDemand },
-    { factor: "Geography", label: `${project.region}`, value: +regionContrib.toFixed(2), demand: regionDemand },
-    { factor: "Registry", label: `${project.registry}`, value: +registryContrib.toFixed(2), demand: registryDemand },
-    { factor: "Vintage", label: `${project.vintage}`, value: +vintageContrib.toFixed(2), demand: vintDemand },
-    { factor: "Permanence", label: `${permTier}`, value: +permContrib.toFixed(2), demand: permDemand },
-    { factor: "Co-Benefits", label: `${cbTier}`, value: +cbContrib.toFixed(2), demand: cbDemand },
+    { factor: "Geography", label: `${project.region} (${regionFactor >= 0 ? "+" : ""}${(regionFactor * 100).toFixed(0)}%)`, value: +regionContrib.toFixed(2), demand: regionDemand },
+    { factor: "Registry", label: `${project.registry} (${registryFactor >= 0 ? "+" : ""}${(registryFactor * 100).toFixed(0)}%)`, value: +registryContrib.toFixed(2), demand: registryDemand },
+    { factor: "Vintage", label: `${project.vintage} (${vintFactor >= 0 ? "+" : ""}${(vintFactor * 100).toFixed(0)}%)`, value: +vintageContrib.toFixed(2), demand: vintDemand },
+    { factor: "Permanence", label: `${permTier} (${permFactor >= 0 ? "+" : ""}${(permFactor * 100).toFixed(0)}%)`, value: +permContrib.toFixed(2), demand: permDemand },
+    { factor: "Co-Benefits", label: `${cbTier} (${cbFactor >= 0 ? "+" : ""}${(cbFactor * 100).toFixed(0)}%)`, value: +cbContrib.toFixed(2), demand: cbDemand },
   ];
 
   return {
@@ -177,12 +181,15 @@ function generatePriceHistory(basePrice, volatility, trend, seed) {
   const rng = seededRandom(seed);
   const data = [];
   const start = new Date(2024, 0);
-  let price = basePrice * (0.82 + rng() * 0.2);
+  // More realistic starting price: wider initial range
+  let price = basePrice * (0.70 + rng() * 0.35);
   for (let i = 0; i < 24; i++) {
     const d = new Date(start); d.setMonth(d.getMonth() + i);
     const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-    price += (rng() - 0.48) * volatility * basePrice + trend * basePrice * 0.01;
-    price = Math.max(basePrice * 0.3, price);
+    // Higher volatility: larger random swings + occasional jumps
+    const jump = rng() > 0.92 ? (rng() - 0.5) * 0.15 * basePrice : 0; // 8% chance of price shock
+    price += (rng() - 0.48) * volatility * basePrice * 1.8 + trend * basePrice * 0.015 + jump;
+    price = Math.max(basePrice * 0.25, price);
     const issuance = Math.floor(5000 + rng() * 45000);
     const retirement = Math.floor(3000 + rng() * 35000);
     const trades = Math.floor(2 + rng() * 12);
@@ -739,7 +746,7 @@ function ProjectEvaluationTab({ projects, profile, weights, portfolio, setPortfo
               <p className="text-xs text-gray-600 mt-1.5 mb-3 leading-relaxed">{selected.description}</p>
 
               <div className="flex gap-0.5 border-b border-gray-200 mb-4">
-                {[{ key: "pricing", label: "Fair Value Decomposition" }, { key: "quality", label: "Quality" }, { key: "volume", label: "Supply & Demand" }].map(t => (
+                {[{ key: "pricing", label: "Fair Value" }, { key: "history", label: "Price History" }, { key: "quality", label: "Quality" }, { key: "volume", label: "Supply & Demand" }].map(t => (
                   <button key={t.key} onClick={() => setTab(t.key)}
                     className={`px-3.5 py-2 text-xs font-medium border-b-2 transition-colors ${tab === t.key ? "border-blue-600 text-blue-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
                 ))}
@@ -818,6 +825,65 @@ function ProjectEvaluationTab({ projects, profile, weights, portfolio, setPortfo
                     {selected.signal === "BUY" && <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2 mt-3 border border-emerald-200"><strong>BUY.</strong> Market price is {Math.abs(selected.spread)}% below your buyer-adjusted fair value. Attribute demand signals support this valuation.</p>}
                     {selected.signal === "HOLD" && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3 border border-amber-200"><strong>HOLD.</strong> Spread within \u00B18% tolerance. Price is approximately fair given current demand signals.</p>}
                     {selected.signal === "SELL" && <p className="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2 mt-3 border border-red-200"><strong>OVERPRICED.</strong> Market price exceeds your fair value by {Math.abs(selected.spread)}%. Demand signals do not support current pricing.</p>}
+                  </div>
+                </div>
+              )}
+              {tab === "history" && (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-700 mb-1">Market Price History (24 months)</h4>
+                    <p className="text-xs text-gray-500 mb-2">Historical trading price with your buyer-adjusted fair value reference line</p>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={selected.priceHistory} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                        <defs>
+                          <linearGradient id={`histGrad-${selected.id}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} domain={["auto", "auto"]} tickFormatter={v => `$${v}`} />
+                        <Tooltip formatter={(v, n) => [`$${v}`, n === "marketPrice" ? "Market Price" : "Fair Value"]} />
+                        <ReferenceLine y={selected.buyerAdjustedValue} stroke="#6366F1" strokeDasharray="6 4" strokeWidth={2}
+                          label={{ value: `Your Fair: $${selected.buyerAdjustedValue}`, position: "right", fill: "#6366F1", fontSize: 10 }} />
+                        <ReferenceLine y={selected.marketFairValue} stroke="#10B981" strokeDasharray="4 4" strokeWidth={1.5}
+                          label={{ value: `Market Fair: $${selected.marketFairValue}`, position: "left", fill: "#10B981", fontSize: 9 }} />
+                        <Area type="monotone" dataKey="marketPrice" stroke="#3B82F6" strokeWidth={2} fill={`url(#histGrad-${selected.id})`} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2.5">
+                    {[
+                      { label: "Current", value: `$${selected.currentPrice}`, sub: "market price" },
+                      { label: "Market Fair", value: `$${selected.marketFairValue}`, sub: "objective", color: "text-emerald-700" },
+                      { label: "Your Fair", value: `$${selected.buyerAdjustedValue}`, sub: "personalized", color: "text-indigo-700" },
+                      { label: "Spread", value: `${selected.spread > 0 ? "+" : ""}${selected.spread}%`, sub: "vs your fair value", color: selected.spread > 0 ? "text-emerald-700" : "text-red-600" },
+                      { label: "Momentum", value: `${selected.momentum > 0 ? "+" : ""}${selected.momentum}%`, sub: "3mo trend", color: selected.momentum > 0 ? "text-emerald-700" : "text-red-600" },
+                    ].map((s, i) => (
+                      <div key={i} className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
+                        <p className="text-xs text-gray-500">{s.label}</p>
+                        <p className={`text-lg font-bold ${s.color || "text-gray-900"}`}>{s.value}</p>
+                        <p className="text-xs text-gray-400">{s.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Trade activity overlay */}
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-700 mb-1">Trade Volume & Frequency</h4>
+                    <ResponsiveContainer width="100%" height={140}>
+                      <ComposedChart data={selected.priceHistory} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 9 }} />
+                        <YAxis yAxisId="vol" tick={{ fontSize: 9 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                        <YAxis yAxisId="trades" orientation="right" tick={{ fontSize: 9 }} />
+                        <Tooltip />
+                        <Area yAxisId="vol" type="monotone" dataKey="volume" fill="#E0E7FF" stroke="#6366F1" strokeWidth={1} name="Volume (tonnes)" />
+                        <Line yAxisId="trades" type="monotone" dataKey="trades" stroke="#F59E0B" strokeWidth={2} dot={false} name="Trades/month" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               )}
