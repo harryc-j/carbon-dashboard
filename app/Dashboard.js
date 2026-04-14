@@ -116,8 +116,12 @@ function computePeerAverages(projects) {
 }
 
 // Compute dataset-average retirement rate for centering demand signals
+// Cap individual rates at 1.0 (100%) to handle projects where issuedTotal=0 or retired > issued
 function computeAvgRetirementRate(projects) {
-  return projects.reduce((s, p) => s + (p.retiredTotal / Math.max(1, p.issuedTotal)), 0) / projects.length;
+  return projects.reduce((s, p) => {
+    if (p.issuedTotal <= 0) return s + 0.5; // default 50% if no issuance data
+    return s + Math.min(1.0, p.retiredTotal / p.issuedTotal);
+  }, 0) / projects.length;
 }
 
 // V3 Fair Value (Approach B): market price × (1 + attribute adjustment + context premiums + demand signal)
@@ -141,8 +145,8 @@ function calculateFairValueV3(project, currentMarketPrice, peerAverages, avgRetR
   const registryPrem = REGISTRY_PREMIUM[project.registry] || 0;
   const vintagePrem = VINTAGE_PREMIUM[project.vintage] || 0;
 
-  // Demand signal: project's retirement rate vs dataset average
-  const retRate = project.issuedTotal > 0 ? project.retiredTotal / project.issuedTotal : 0.5;
+  // Demand signal: project's retirement rate vs dataset average (capped at 1.0)
+  const retRate = project.issuedTotal > 0 ? Math.min(1.0, project.retiredTotal / project.issuedTotal) : 0.5;
   const demandAdj = (retRate - avgRetRate) * 0.15;
 
   // Total premium/discount over market price
@@ -278,7 +282,7 @@ function enrichProjects(buyerWeights, demandSignals) {
     const overallScore = +(QUALITY_ATTRIBUTES.reduce((s, a) => s + p.attributes[a.key] * buyerWeights[a.key], 0)).toFixed(1);
 
     // Demand signals from retirement data
-    const retirementRate = p.issuedTotal > 0 ? +((p.retiredTotal / p.issuedTotal) * 100).toFixed(0) : 0;
+    const retirementRate = p.issuedTotal > 0 ? +(Math.min(100, (p.retiredTotal / p.issuedTotal) * 100)).toFixed(0) : 0;
     const demandSignal = retirementRate > 75 ? "Strong" : retirementRate > 50 ? "Moderate" : "Weak";
     const recent3 = priceHistory.slice(-3).reduce((s,d) => s + d.marketPrice, 0) / 3;
     const prior3 = priceHistory.slice(-6, -3).reduce((s,d) => s + d.marketPrice, 0) / 3;
@@ -639,7 +643,118 @@ function BuyerProfileTab({ profile, setProfile, weights, projects, demandSignals
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 2: PROJECT EVALUATION (V3 — waterfall + confidence)
+// TAB 2: RECOMMENDATIONS (V4 — buyer-matched project recommendations)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Reference buyer profiles from real registry data (MVP: 5 profiles from buyer analysis)
+const REFERENCE_BUYERS = [
+  { name: "Shell", industry: "Oil & Gas", credits: 48294356, focus: ["REDD+", "Afforestation"], regions: ["Southeast Asia", "Latin America", "Central Africa"], registries: ["Verra", "Gold Standard", "ACR"], traits: "Volume buyer. REDD+ dominated (75%). Buys older vintages at scale. In-house trading desk." },
+  { name: "Delta Air Lines", industry: "Aviation", credits: 11404912, focus: ["Renewable Energy", "REDD+"], regions: ["South Asia", "Southeast Asia"], registries: ["Verra"], traits: "Program ended 2022. Pivoted to SAF. Bought cheap older-vintage renewables." },
+  { name: "Boeing", industry: "Aerospace", credits: 4288823, focus: ["Renewable Energy", "REDD+", "Methane Capture"], regions: ["South Asia", "Europe", "Latin America"], registries: ["Verra", "ACR", "Gold Standard"], traits: "Diversified buyer. Recent vintages. Uses intermediaries." },
+  { name: "Salesforce", industry: "Technology", credits: 1882923, focus: ["REDD+", "Cookstove", "Energy Efficiency"], regions: ["Latin America", "Southeast Asia", "South Asia"], registries: ["Verra", "Gold Standard", "ACR", "CAR"], traits: "Quality-conscious. ODS destruction + premium REDD+. 6 intermediaries." },
+  { name: "Norwegian Cruise Line", industry: "Travel & Cruise", credits: 2750000, focus: ["Renewable Energy"], regions: ["Southeast Asia", "Europe", "Latin America"], registries: ["Verra"], traits: "Price buyer. Old vintages only. 99% renewable energy. High single-project concentration." },
+];
+
+function RecommendationsTab({ projects, profile, weights }) {
+  // Score each project against the buyer's preferences
+  const scoredProjects = useMemo(() => {
+    return projects.map(p => {
+      let score = 0;
+      // Quality alignment: weighted attribute scores
+      for (const a of QUALITY_ATTRIBUTES) {
+        score += (p.attributes[a.key] / 10) * (weights[a.key] || 0.125);
+      }
+      // Signal bonus: BUY = +0.15, HOLD = 0, SELL = -0.1
+      if (p.signal === "BUY") score += 0.15;
+      else if (p.signal === "SELL") score -= 0.1;
+      // Demand strength bonus
+      if (p.demandSignal === "Strong") score += 0.05;
+      return { ...p, matchScore: +score.toFixed(3) };
+    }).sort((a, b) => b.matchScore - a.matchScore);
+  }, [projects, weights]);
+
+  // Find which reference buyers are most similar to this profile
+  const buyerMatches = useMemo(() => {
+    return REFERENCE_BUYERS.map(rb => {
+      let similarity = 0;
+      // Check methodology overlap
+      const topMethods = scoredProjects.slice(0, 10).map(p => p.methodology);
+      for (const f of rb.focus) {
+        if (topMethods.includes(f)) similarity += 0.3;
+      }
+      // Industry match
+      if (profile.industry && rb.industry.toLowerCase().includes(profile.industry.toLowerCase())) similarity += 0.4;
+      // Volume similarity
+      const volRatio = Math.min(profile.volumeTarget, rb.credits / 10) / Math.max(profile.volumeTarget, rb.credits / 10);
+      similarity += volRatio * 0.2;
+      return { ...rb, similarity: +similarity.toFixed(2) };
+    }).sort((a, b) => b.similarity - a.similarity);
+  }, [scoredProjects, profile]);
+
+  const topRecs = scoredProjects.slice(0, 8);
+  const hasProfile = profile.companyName || profile.industry;
+
+  return (
+    <div className="space-y-4">
+      <SectionCard title="Recommended Projects" subtitle={hasProfile ? `Based on your buyer profile${profile.companyName ? ` (${profile.companyName})` : ""}` : "Configure your Buyer Profile to get personalized recommendations"}>
+        <div className="grid grid-cols-1 gap-2">
+          {topRecs.map((p, i) => (
+            <div key={p.id} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold">
+                {i + 1}
+              </div>
+              <div className="flex-grow min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-gray-800 truncate">{p.name}</p>
+                  <SignalBadge signal={p.signal} spread={p.spread} />
+                </div>
+                <p className="text-xs text-gray-500">{p.methodology} · {p.region} · {p.registry} · Vintage {p.vintage}</p>
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <p className="text-sm font-bold text-gray-800">${p.currentPrice?.toFixed(2)}</p>
+                <p className="text-xs text-gray-500">Fair: ${p.marketFairValue}</p>
+              </div>
+              <div className="flex-shrink-0 w-16 text-center">
+                <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                  {(p.matchScore * 100).toFixed(0)}%
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">match</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Similar Buyer Profiles" subtitle="Corporate buyers with similar purchasing patterns (from real registry data)">
+        <div className="grid grid-cols-1 gap-3">
+          {buyerMatches.slice(0, 3).map((rb, i) => (
+            <div key={i} className="p-4 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h4 className="text-sm font-bold text-gray-800">{rb.name}</h4>
+                  <p className="text-xs text-gray-500">{rb.industry} · {rb.credits.toLocaleString()} credits retired</p>
+                </div>
+                <div className="text-right">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
+                    {(rb.similarity * 100).toFixed(0)}% similar
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 mb-2">{rb.traits}</p>
+              <div className="flex gap-4 text-xs text-gray-500">
+                <span>Focus: {rb.focus.join(", ")}</span>
+                <span>Registries: {rb.registries.join(", ")}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 3: PROJECT EVALUATION (V4 — waterfall + real retirement data)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ProjectEvaluationTab({ projects, profile, weights, portfolio, setPortfolio }) {
@@ -1581,7 +1696,7 @@ function ProcurementBriefTab({ profile, portfolio, projects, weights, demandSign
     t += `PRICING MODEL: Attribute-level factor pricing with demand-weighted signals.\n`;
     t += `Fair values derived from: methodology base × demand signal + geography premium × demand + registry premium × demand + vintage adjustment + permanence tier + co-benefit tier, adjusted by buyer quality preferences.\n\n`;
     t += `SDG COVERAGE: ${coveredSDGs.map(s => `SDG ${s} (${SDG_LABELS[s]})`).join(", ")}\nAlignment with priorities: ${sdgAlignmentPct}%\n\n`;
-    t += `\u2014\nCarbon Market Intelligence Platform | V3 | ${today} | Attribute-level demand-weighted pricing model. Simulated data for demonstration.`;
+    t += `\u2014\nCarbon Market Intelligence Platform | V4 | ${today} | Attribute-level demand-weighted pricing model. Simulated data for demonstration.`;
     navigator.clipboard.writeText(t).catch(() => {});
   };
 
@@ -1706,7 +1821,7 @@ function ProcurementBriefTab({ profile, portfolio, projects, weights, demandSign
         )}
 
         <div className="px-8 py-4 bg-gray-50 rounded-b-lg">
-          <p className="text-xs text-gray-400 text-center">Carbon Market Intelligence Platform · V3 · Procurement Brief · {today}</p>
+          <p className="text-xs text-gray-400 text-center">Carbon Market Intelligence Platform · V4 · Procurement Brief · {today}</p>
           <p className="text-xs text-gray-400 text-center mt-0.5">Attribute-level demand-weighted pricing model. All market data simulated for demonstration.</p>
         </div>
       </div>
@@ -1750,6 +1865,7 @@ export default function CarbonDashboard() {
 
   const TABS = [
     { key: "profile", label: "Buyer Profile" },
+    { key: "recommend", label: "Recommendations" },
     { key: "evaluate", label: "Project Evaluation" },
     { key: "prices", label: "Market Prices" },
     { key: "portfolio", label: "Portfolio", badge: portfolio.length || null },
@@ -1762,7 +1878,7 @@ export default function CarbonDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-gray-900">Carbon Market Intelligence</h1>
-            <p className="text-xs text-gray-500">{projects.length} projects · 10 methodologies · 6 attribute dimensions · V3 Factor Pricing · {profile.companyName ? `${profile.companyName}` : "Configure your Buyer Profile to get started"}</p>
+            <p className="text-xs text-gray-500">{projects.length} projects · 10 methodologies · 6 attribute dimensions · V4 Market Intelligence · {profile.companyName ? `${profile.companyName}` : "Configure your Buyer Profile to get started"}</p>
           </div>
           <div className="flex items-center gap-1">
             {TABS.map(t => (
@@ -1780,13 +1896,14 @@ export default function CarbonDashboard() {
 
       <div className="px-5 py-4">
         {activeTab === "profile" && <BuyerProfileTab profile={profile} setProfile={setProfile} weights={weights} projects={projects} demandSignals={demandSignals} />}
+        {activeTab === "recommend" && <RecommendationsTab projects={projects} profile={profile} weights={weights} />}
         {activeTab === "evaluate" && <ProjectEvaluationTab projects={projects} profile={profile} weights={weights} portfolio={portfolio} setPortfolio={setPortfolio} />}
         {activeTab === "prices" && <MarketPricesTab projects={projects} demandSignals={demandSignals} />}
         {activeTab === "portfolio" && <PortfolioTab portfolio={portfolio} setPortfolio={setPortfolio} projects={projects} profile={profile} demandSignals={demandSignals} />}
         {activeTab === "brief" && <ProcurementBriefTab profile={profile} portfolio={portfolio} projects={projects} weights={weights} demandSignals={demandSignals} />}
 
         <div className="mt-6 pt-3 border-t border-gray-200 text-center">
-          <p className="text-xs text-gray-400">Carbon Market Intelligence Platform · V3 · Attribute-Level Factor Pricing · {projects.length} Projects · Simulated Data · SFE Spring 2026</p>
+          <p className="text-xs text-gray-400">Carbon Market Intelligence Platform · V4 · Real Registry Data · {projects.length} Projects · Simulated Data · SFE Spring 2026</p>
         </div>
       </div>
     </div>
