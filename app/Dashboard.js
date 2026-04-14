@@ -6,6 +6,7 @@ import {
   BarChart, Bar, Cell, ReferenceLine, CartesianGrid, Area, AreaChart,
   PieChart, Pie, Legend, ComposedChart
 } from "recharts";
+import retirementData from "./retirement_data.json";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA MODEL & CONSTANTS
@@ -197,35 +198,61 @@ function generatePriceHistory(basePrice, volatility, trend, seed) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 25 RAW PROJECTS
+// V4: 50 REAL PROJECTS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// V4: 50 REAL PROJECTS with retirement data from ACR, CAR, Gold Standard, and Verra registries
 const RAW_PROJECTS = [
-  { id:1, name:"Katingan Peatland Restoration", registry:"Verra", registryId:"VCS-1477", methodology:"REDD+", vintage:2024, country:"Indonesia", region:"Southeast Asia", sdgs:[13,15,6,1], issuedTotal:2450000, retiredTotal:1180000, description:"Protects 149,800 ha of tropical peat swamp forest on Borneo from palm oil conversion. Deep peat deposits at significant fire risk. One of the largest REDD+ projects globally.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:8,coBenefits:9,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:7}, volatility:0.06, trend:0.3 },
-  { id:2, name:"Mai Ndombe REDD+", registry:"Verra", registryId:"VCS-0934", methodology:"REDD+", vintage:2023, country:"DR Congo", region:"Central Africa", sdgs:[13,15,1,2], issuedTotal:3200000, retiredTotal:980000, description:"Protects 300,000 ha of tropical forest in the DRC\u2019s Mai Ndombe province. High deforestation baseline driven by slash-and-burn agriculture.", attributes:{permanence:5,additionality:6,leakageRisk:4,verificationQuality:6,coBenefits:8,methodologyMaturity:8,bufferAdequacy:5,regulatoryAlignment:5}, volatility:0.09, trend:-0.3 },
-  { id:3, name:"Cordillera Azul National Park", registry:"Verra", registryId:"VCS-0985", methodology:"REDD+", vintage:2024, country:"Peru", region:"Latin America", sdgs:[13,15,1], issuedTotal:4100000, retiredTotal:2300000, description:"Protects 1.35M ha of Andean-Amazon transition forest in Peru. High biodiversity.", attributes:{permanence:7,additionality:5,leakageRisk:5,verificationQuality:7,coBenefits:9,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.08, trend:-0.1 },
-  { id:4, name:"Kariba REDD+ Forest Protection", registry:"Verra", registryId:"VCS-0902", methodology:"REDD+", vintage:2023, country:"Zimbabwe", region:"East Africa", sdgs:[13,15,1,8], issuedTotal:1900000, retiredTotal:1400000, description:"Protects nearly 785,000 ha of forest and wildlife habitat on the southern shore of Lake Kariba.", attributes:{permanence:6,additionality:7,leakageRisk:6,verificationQuality:7,coBenefits:8,methodologyMaturity:8,bufferAdequacy:7,regulatoryAlignment:6}, volatility:0.05, trend:0.2 },
-  { id:5, name:"Mombasa Clean Cookstoves", registry:"Gold Standard", registryId:"GS-4821", methodology:"Cookstove", vintage:2024, country:"Kenya", region:"East Africa", sdgs:[7,3,5,13], issuedTotal:380000, retiredTotal:290000, description:"Distributes fuel-efficient cookstoves to 45,000 households in coastal Kenya.", attributes:{permanence:4,additionality:8,leakageRisk:8,verificationQuality:9,coBenefits:10,methodologyMaturity:9,bufferAdequacy:5,regulatoryAlignment:6}, volatility:0.05, trend:0.5 },
-  { id:6, name:"Rwanda Improved Stoves Project", registry:"Gold Standard", registryId:"GS-5102", methodology:"Cookstove", vintage:2024, country:"Rwanda", region:"East Africa", sdgs:[7,3,5,13,1], issuedTotal:210000, retiredTotal:175000, description:"Government-backed clean cooking initiative distributing 30,000 improved biomass stoves.", attributes:{permanence:4,additionality:9,leakageRisk:8,verificationQuality:9,coBenefits:10,methodologyMaturity:9,bufferAdequacy:5,regulatoryAlignment:7}, volatility:0.04, trend:0.6 },
-  { id:7, name:"Ghana LPG Transition", registry:"Gold Standard", registryId:"GS-3890", methodology:"Cookstove", vintage:2023, country:"Ghana", region:"West Africa", sdgs:[7,3,13], issuedTotal:150000, retiredTotal:88000, description:"Facilitates transition from charcoal to LPG cooking across 20,000 urban households.", attributes:{permanence:4,additionality:7,leakageRisk:7,verificationQuality:8,coBenefits:7,methodologyMaturity:8,bufferAdequacy:4,regulatoryAlignment:5}, volatility:0.06, trend:0.1 },
-  { id:8, name:"Gujarat Wind Farm Cluster", registry:"Verra", registryId:"VCS-2103", methodology:"Renewable Energy", vintage:2023, country:"India", region:"South Asia", sdgs:[7,13,8], issuedTotal:1800000, retiredTotal:1100000, description:"12 wind turbine installations across Gujarat generating 180MW of clean energy.", attributes:{permanence:9,additionality:4,leakageRisk:9,verificationQuality:7,coBenefits:5,methodologyMaturity:10,bufferAdequacy:8,regulatoryAlignment:8}, volatility:0.04, trend:-0.2 },
-  { id:9, name:"Oaxaca Solar Array", registry:"CAR", registryId:"CAR-MX-401", methodology:"Renewable Energy", vintage:2024, country:"Mexico", region:"Latin America", sdgs:[7,13,8,11], issuedTotal:420000, retiredTotal:310000, description:"50MW utility-scale solar installation in Oaxaca.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:8,regulatoryAlignment:7}, volatility:0.03, trend:0.0 },
-  { id:10, name:"Vietnam Mekong Small Hydro", registry:"Verra", registryId:"VCS-1890", methodology:"Renewable Energy", vintage:2022, country:"Vietnam", region:"Southeast Asia", sdgs:[7,13,6], issuedTotal:680000, retiredTotal:520000, description:"Network of 8 small-scale run-of-river hydroelectric stations.", attributes:{permanence:9,additionality:3,leakageRisk:8,verificationQuality:6,coBenefits:4,methodologyMaturity:10,bufferAdequacy:7,regulatoryAlignment:6}, volatility:0.05, trend:-0.4 },
-  { id:11, name:"Morocco Concentrated Solar", registry:"Gold Standard", registryId:"GS-6201", methodology:"Renewable Energy", vintage:2025, country:"Morocco", region:"Europe", sdgs:[7,13,9], issuedTotal:280000, retiredTotal:95000, description:"Concentrated solar power plant near Ouarzazate with thermal storage.", attributes:{permanence:9,additionality:7,leakageRisk:9,verificationQuality:9,coBenefits:6,methodologyMaturity:7,bufferAdequacy:8,regulatoryAlignment:9}, volatility:0.04, trend:0.5 },
-  { id:12, name:"Cispatá Bay Mangrove Conservation", registry:"Verra", registryId:"VCS-2290", methodology:"Blue Carbon", vintage:2024, country:"Colombia", region:"Latin America", sdgs:[14,13,15,1], issuedTotal:85000, retiredTotal:42000, description:"Protects 11,000 ha of mangrove forest along Colombia\u2019s Caribbean coast.", attributes:{permanence:7,additionality:8,leakageRisk:7,verificationQuality:8,coBenefits:9,methodologyMaturity:6,bufferAdequacy:7,regulatoryAlignment:7}, volatility:0.07, trend:0.8 },
-  { id:13, name:"Mikoko Pamoja Mangrove", registry:"Gold Standard", registryId:"GS-2091", methodology:"Blue Carbon", vintage:2024, country:"Kenya", region:"East Africa", sdgs:[14,13,1,4], issuedTotal:45000, retiredTotal:38000, description:"Community-led mangrove conservation in Gazi Bay, Kenya.", attributes:{permanence:7,additionality:9,leakageRisk:7,verificationQuality:9,coBenefits:10,methodologyMaturity:6,bufferAdequacy:6,regulatoryAlignment:7}, volatility:0.06, trend:1.0 },
-  { id:14, name:"Philippines Seagrass Restoration", registry:"Verra", registryId:"VCS-2450", methodology:"Blue Carbon", vintage:2025, country:"Philippines", region:"Southeast Asia", sdgs:[14,13,15], issuedTotal:22000, retiredTotal:8000, description:"Seagrass meadow restoration across 3,000 ha in Palawan.", attributes:{permanence:5,additionality:7,leakageRisk:5,verificationQuality:7,coBenefits:8,methodologyMaturity:4,bufferAdequacy:5,regulatoryAlignment:5}, volatility:0.09, trend:0.3 },
-  { id:15, name:"Climeworks Mammoth DAC", registry:"Verra", registryId:"VCS-3010", methodology:"Direct Air Capture", vintage:2025, country:"Iceland", region:"Europe", sdgs:[13,9], issuedTotal:12000, retiredTotal:9500, description:"Direct air capture facility in Iceland. Captures CO\u2082 and mineralizes in basalt.", attributes:{permanence:10,additionality:10,leakageRisk:10,verificationQuality:9,coBenefits:3,methodologyMaturity:5,bufferAdequacy:10,regulatoryAlignment:9}, volatility:0.08, trend:-0.5 },
-  { id:16, name:"Carbon Engineering Texas Hub", registry:"ACR", registryId:"ACR-DAC-102", methodology:"Direct Air Capture", vintage:2025, country:"United States", region:"North America", sdgs:[13,9,8], issuedTotal:8000, retiredTotal:7200, description:"Oxy-backed DAC facility in the Permian Basin.", attributes:{permanence:10,additionality:10,leakageRisk:10,verificationQuality:8,coBenefits:4,methodologyMaturity:5,bufferAdequacy:10,regulatoryAlignment:10}, volatility:0.07, trend:-0.3 },
-  { id:17, name:"Ethiopia Great Green Wall", registry:"Gold Standard", registryId:"GS-5890", methodology:"Afforestation", vintage:2024, country:"Ethiopia", region:"East Africa", sdgs:[15,13,1,2], issuedTotal:320000, retiredTotal:140000, description:"Reforestation of 25,000 ha of degraded dryland in Tigray.", attributes:{permanence:5,additionality:8,leakageRisk:6,verificationQuality:7,coBenefits:9,methodologyMaturity:7,bufferAdequacy:5,regulatoryAlignment:6}, volatility:0.07, trend:0.2 },
-  { id:18, name:"Chilean Patagonia Native Reforestation", registry:"Verra", registryId:"VCS-2780", methodology:"Afforestation", vintage:2024, country:"Chile", region:"Latin America", sdgs:[15,13,6], issuedTotal:180000, retiredTotal:110000, description:"Native species reforestation across 8,000 ha of degraded pastoral land.", attributes:{permanence:8,additionality:8,leakageRisk:7,verificationQuality:8,coBenefits:7,methodologyMaturity:7,bufferAdequacy:7,regulatoryAlignment:7}, volatility:0.05, trend:0.4 },
-  { id:19, name:"Bangladesh Brick Kiln Methane", registry:"Gold Standard", registryId:"GS-4210", methodology:"Methane Capture", vintage:2023, country:"Bangladesh", region:"South Asia", sdgs:[13,11,3], issuedTotal:520000, retiredTotal:410000, description:"Methane destruction from 150 brick kilns converted to improved zigzag technology.", attributes:{permanence:8,additionality:8,leakageRisk:8,verificationQuality:8,coBenefits:7,methodologyMaturity:9,bufferAdequacy:7,regulatoryAlignment:7}, volatility:0.04, trend:0.3 },
-  { id:20, name:"Brazil Landfill Gas-to-Energy", registry:"Verra", registryId:"VCS-1560", methodology:"Methane Capture", vintage:2022, country:"Brazil", region:"Latin America", sdgs:[13,7,11], issuedTotal:890000, retiredTotal:720000, description:"Captures landfill methane at 4 municipal waste sites in São Paulo state.", attributes:{permanence:8,additionality:5,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:10,bufferAdequacy:8,regulatoryAlignment:6}, volatility:0.04, trend:-0.2 },
-  { id:21, name:"Pacific Biochar California", registry:"ACR", registryId:"ACR-BIO-055", methodology:"Biochar", vintage:2025, country:"United States", region:"North America", sdgs:[13,15,2], issuedTotal:15000, retiredTotal:12000, description:"Converts agricultural waste into biochar. 100+ year carbon stability in soil.", attributes:{permanence:9,additionality:8,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:5,bufferAdequacy:8,regulatoryAlignment:8}, volatility:0.07, trend:0.4 },
-  { id:22, name:"Kenya Biochar from Sugarcane Waste", registry:"Gold Standard", registryId:"GS-6050", methodology:"Biochar", vintage:2024, country:"Kenya", region:"East Africa", sdgs:[13,2,15,1], issuedTotal:8000, retiredTotal:5500, description:"Converts sugarcane bagasse waste into biochar in Kisumu region.", attributes:{permanence:8,additionality:9,leakageRisk:8,verificationQuality:7,coBenefits:9,methodologyMaturity:5,bufferAdequacy:7,regulatoryAlignment:6}, volatility:0.08, trend:0.7 },
-  { id:23, name:"Turkey Industrial Efficiency Program", registry:"Gold Standard", registryId:"GS-3450", methodology:"Energy Efficiency", vintage:2023, country:"Turkey", region:"Europe", sdgs:[9,13,12], issuedTotal:410000, retiredTotal:280000, description:"Energy efficiency upgrades across 85 industrial facilities.", attributes:{permanence:8,additionality:6,leakageRisk:8,verificationQuality:8,coBenefits:5,methodologyMaturity:9,bufferAdequacy:7,regulatoryAlignment:7}, volatility:0.03, trend:0.0 },
-  { id:24, name:"Australian Regenerative Grazing", registry:"ACR", registryId:"ACR-SC-201", methodology:"Soil Carbon", vintage:2024, country:"Australia", region:"Oceania", sdgs:[15,13,2], issuedTotal:95000, retiredTotal:48000, description:"Rotational grazing and cover cropping across 40,000 ha.", attributes:{permanence:5,additionality:7,leakageRisk:6,verificationQuality:7,coBenefits:7,methodologyMaturity:4,bufferAdequacy:5,regulatoryAlignment:6}, volatility:0.08, trend:0.2 },
-  { id:25, name:"Cambodia Regenerative Rice", registry:"Gold Standard", registryId:"GS-6180", methodology:"Soil Carbon", vintage:2025, country:"Cambodia", region:"Southeast Asia", sdgs:[2,13,1,6], issuedTotal:35000, retiredTotal:12000, description:"Alternate wetting and drying rice cultivation across 15,000 ha.", attributes:{permanence:4,additionality:8,leakageRisk:6,verificationQuality:7,coBenefits:9,methodologyMaturity:4,bufferAdequacy:4,regulatoryAlignment:5}, volatility:0.09, trend:0.5 },
+  { id:1, name:"Katingan Peatland Restoration", registry:"Verra", registryId:"Verra_1477", methodology:"REDD+", vintage:2026, country:"Indonesia", region:"Southeast Asia", sdgs:[13, 15, 1], issuedTotal:14165124, retiredTotal:36837398, description:"Agriculture Forestry and Other Land Use. Indonesia. 4376 retirements, 1520 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:9,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:2, name:"Mai Ndombe REDD+", registry:"Verra", registryId:"Verra_934", methodology:"REDD+", vintage:2026, country:"Congo, The Democratic Republic of The", region:"Central Africa", sdgs:[13, 15, 1], issuedTotal:6984597, retiredTotal:23208890, description:"Agriculture Forestry and Other Land Use. Congo, The Democratic Republic of The. 6422 retirements, 514 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:9,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:3, name:"Cordillera Azul National Park", registry:"Verra", registryId:"Verra_985", methodology:"REDD+", vintage:2026, country:"Peru", region:"Latin America", sdgs:[13, 15, 1], issuedTotal:5772071, retiredTotal:15806102, description:"Agriculture Forestry and Other Land Use. Peru. 3346 retirements, 440 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:9,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:0.5 },
+  { id:4, name:"Kariba REDD+ Forest Protection", registry:"Verra", registryId:"Verra_902", methodology:"REDD+", vintage:2026, country:"Zimbabwe", region:"Southeast Asia", sdgs:[13, 15, 1], issuedTotal:3895970, retiredTotal:21955545, description:"Agriculture Forestry and Other Land Use. Zimbabwe. 6858 retirements, 526 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:9,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
+  { id:5, name:"Rimba Raya Biodiversity Reserve", registry:"Verra", registryId:"Verra_674", methodology:"REDD+", vintage:2026, country:"Indonesia", region:"Southeast Asia", sdgs:[13, 15, 1], issuedTotal:3925272, retiredTotal:26750699, description:"Agriculture Forestry and Other Land Use. Indonesia. 10289 retirements, 831 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:9,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.4 },
+  { id:6, name:"Luangwa Community Forests", registry:"Verra", registryId:"Verra_1775", methodology:"REDD+", vintage:2026, country:"Zambia", region:"East Africa", sdgs:[13, 15, 1], issuedTotal:2468500, retiredTotal:11395287, description:"Agriculture Forestry and Other Land Use. Zambia. 448 retirements, 160 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:8,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:7, name:"Southern Cardamom REDD+", registry:"Verra", registryId:"Verra_1748", methodology:"REDD+", vintage:2026, country:"Cambodia", region:"Southeast Asia", sdgs:[13, 15, 1], issuedTotal:3982378, retiredTotal:6736253, description:"Agriculture Forestry and Other Land Use. Cambodia. 2181 retirements, 610 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:9,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.1 },
+  { id:8, name:"Kasigau Corridor REDD Phase II", registry:"Verra", registryId:"Verra_612", methodology:"REDD+", vintage:2026, country:"Kenya", region:"East Africa", sdgs:[13, 15, 1], issuedTotal:2722170, retiredTotal:8989007, description:"Agriculture Forestry and Other Land Use. Kenya. 3881 retirements, 202 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:9,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.11, trend:0.0 },
+  { id:9, name:"Improved Cookstoves Uganda", registry:"Gold Standard", registryId:"Gold Standard_447", methodology:"Cookstove", vintage:2026, country:"Uganda", region:"East Africa", sdgs:[7, 3, 13], issuedTotal:0, retiredTotal:8601317, description:"Energy Efficiency - Domestic. Uganda. 1682 retirements, 38 unique buyers.", attributes:{permanence:4,additionality:8,leakageRisk:8,verificationQuality:8,coBenefits:9,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.1, trend:1.0 },
+  { id:10, name:"Gyapa Cookstoves Ghana", registry:"Gold Standard", registryId:"Gold Standard_407", methodology:"Cookstove", vintage:2026, country:"Ghana", region:"West Africa", sdgs:[7, 3, 13], issuedTotal:0, retiredTotal:5119170, description:"Energy Efficiency - Domestic. Ghana. 1565 retirements, 132 unique buyers.", attributes:{permanence:4,additionality:8,leakageRisk:8,verificationQuality:9,coBenefits:9,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.11, trend:1.0 },
+  { id:11, name:"LifeStraw Water Purification Kenya", registry:"Gold Standard", registryId:"Gold Standard_886", methodology:"Cookstove", vintage:2025, country:"Kenya", region:"East Africa", sdgs:[7, 3, 13], issuedTotal:0, retiredTotal:4447339, description:"Energy Efficiency - Domestic. Kenya. 1045 retirements, 3 unique buyers.", attributes:{permanence:4,additionality:8,leakageRisk:8,verificationQuality:8,coBenefits:9,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
+  { id:12, name:"Burn Stoves Kenya", registry:"Gold Standard", registryId:"Gold Standard_5642", methodology:"Cookstove", vintage:2026, country:"Kenya", region:"East Africa", sdgs:[7, 3, 13], issuedTotal:0, retiredTotal:2785724, description:"Energy Efficiency - Domestic. Kenya. 1413 retirements, 62 unique buyers.", attributes:{permanence:4,additionality:8,leakageRisk:8,verificationQuality:9,coBenefits:9,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.09, trend:1.0 },
+  { id:13, name:"Kinnaur Hydroelectric India", registry:"Verra", registryId:"Verra_1742", methodology:"Renewable Energy", vintage:2026, country:"India", region:"South Asia", sdgs:[7, 13, 8], issuedTotal:3683633, retiredTotal:13620205, description:"Energy industries (renewable/non-renewable sources). India. 2334 retirements, 162 unique buyers.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.07, trend:-0.2 },
+  { id:14, name:"Vishnuprayag Hydro India", registry:"Verra", registryId:"Verra_173", methodology:"Renewable Energy", vintage:2026, country:"India", region:"South Asia", sdgs:[7, 13, 8], issuedTotal:1222754, retiredTotal:10893913, description:"Energy industries (renewable/non-renewable sources). India. 1670 retirements, 350 unique buyers.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:9,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:15, name:"300MW Hydropower JHPL India", registry:"Verra", registryId:"Verra_92", methodology:"Renewable Energy", vintage:2026, country:"India", region:"South Asia", sdgs:[7, 13, 8], issuedTotal:1256820, retiredTotal:10222691, description:"Energy industries (renewable/non-renewable sources). India. 1586 retirements, 166 unique buyers.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:0.9 },
+  { id:16, name:"ReNew Solar Power India", registry:"Verra", registryId:"Verra_1851", methodology:"Renewable Energy", vintage:2026, country:"India", region:"South Asia", sdgs:[7, 13, 8], issuedTotal:1725763, retiredTotal:10449443, description:"Energy industries (renewable/non-renewable sources). India. 336 retirements, 158 unique buyers.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.08, trend:-0.0 },
+  { id:17, name:"Musi Hydro Power Indonesia", registry:"Verra", registryId:"Verra_487", methodology:"Renewable Energy", vintage:2026, country:"Indonesia", region:"Southeast Asia", sdgs:[7, 13, 8], issuedTotal:958676, retiredTotal:5524861, description:"Energy industries (renewable/non-renewable sources). Indonesia. 1260 retirements, 179 unique buyers.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:18, name:"Vietnam Mekong Small Hydro", registry:"Verra", registryId:"Verra_1890", methodology:"Renewable Energy", vintage:2026, country:"India", region:"South Asia", sdgs:[7, 13, 8], issuedTotal:275132, retiredTotal:1399700, description:"Energy industries (renewable/non-renewable sources). India. 93 retirements, 52 unique buyers.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.07, trend:-0.4 },
+  { id:19, name:"Changbin & Taichung Wind Farms Taiwan", registry:"Gold Standard", registryId:"Gold Standard_472", methodology:"Renewable Energy", vintage:2026, country:"Taiwan", region:"Southeast Asia", sdgs:[7, 13, 8], issuedTotal:0, retiredTotal:2887054, description:"Other. Taiwan. 1106 retirements, 9 unique buyers.", attributes:{permanence:9,additionality:4,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.11, trend:-0.5 },
+  { id:20, name:"400MW Bhadla Solar India", registry:"Gold Standard", registryId:"Gold Standard_7071", methodology:"Renewable Energy", vintage:2026, country:"India", region:"South Asia", sdgs:[7, 13, 8], issuedTotal:0, retiredTotal:2238126, description:"Solar Thermal - Electricity. India. 2516 retirements, 121 unique buyers.", attributes:{permanence:9,additionality:4,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.08, trend:-0.3 },
+  { id:21, name:"Cispatá Bay Mangrove Colombia", registry:"Verra", registryId:"Verra_2290", methodology:"Blue Carbon", vintage:2024, country:"Colombia", region:"Latin America", sdgs:[14, 13, 15], issuedTotal:18160, retiredTotal:57369, description:"Agriculture Forestry and Other Land Use. Colombia. 30 retirements, 12 unique buyers.", attributes:{permanence:6,additionality:8,leakageRisk:6,verificationQuality:7,coBenefits:9,methodologyMaturity:5,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.4 },
+  { id:22, name:"Kuamut Rainforest Malaysia", registry:"Verra", registryId:"Verra_2609", methodology:"Blue Carbon", vintage:2026, country:"Malaysia", region:"Southeast Asia", sdgs:[14, 13, 15], issuedTotal:1108187, retiredTotal:4874987, description:"Agriculture Forestry and Other Land Use. Malaysia. 305 retirements, 97 unique buyers.", attributes:{permanence:6,additionality:8,leakageRisk:6,verificationQuality:8,coBenefits:9,methodologyMaturity:5,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:0.0 },
+  { id:23, name:"Mikoko Pamoja Mangrove Kenya", registry:"Gold Standard", registryId:"Gold Standard_2091", methodology:"Blue Carbon", vintage:2023, country:"China", region:"Europe", sdgs:[14, 13, 15], issuedTotal:0, retiredTotal:57516, description:"Solar Thermal - Heat. China. 20 retirements, 0 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:6,verificationQuality:7,coBenefits:9,methodologyMaturity:5,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
+  { id:24, name:"Climeworks Mammoth DAC", registry:"Verra", registryId:"Verra_3010", methodology:"Direct Air Capture", vintage:2026, country:"Brazil", region:"Latin America", sdgs:[13, 9], issuedTotal:403869, retiredTotal:401068, description:"Energy industries (renewable/non-renewable sources); Waste h. Brazil. 125 retirements, 45 unique buyers.", attributes:{permanence:10,additionality:10,leakageRisk:10,verificationQuality:7,coBenefits:3,methodologyMaturity:4,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.09, trend:-0.3 },
+  { id:25, name:"Envira Amazonia REDD+ Brazil", registry:"Verra", registryId:"Verra_1382", methodology:"Afforestation", vintage:2026, country:"Brazil", region:"Latin America", sdgs:[15, 13, 1], issuedTotal:2394725, retiredTotal:9737651, description:"Agriculture Forestry and Other Land Use. Brazil. 11521 retirements, 2064 unique buyers.", attributes:{permanence:6,additionality:8,leakageRisk:6,verificationQuality:9,coBenefits:7,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.0 },
+  { id:26, name:"Guanaré Forest Plantations Uruguay", registry:"Verra", registryId:"Verra_959", methodology:"Afforestation", vintage:2026, country:"Uruguay", region:"Latin America", sdgs:[15, 13, 1], issuedTotal:1289510, retiredTotal:5761832, description:"Agriculture Forestry and Other Land Use. Uruguay. 5908 retirements, 4764 unique buyers.", attributes:{permanence:6,additionality:8,leakageRisk:6,verificationQuality:9,coBenefits:7,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.11, trend:0.9 },
+  { id:27, name:"Tropical Mix Panama", registry:"Gold Standard", registryId:"Gold Standard_2940", methodology:"Afforestation", vintage:2026, country:"Panama", region:"Latin America", sdgs:[15, 13, 1], issuedTotal:0, retiredTotal:2281541, description:"A/R. Panama. 8178 retirements, 81 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:6,verificationQuality:8,coBenefits:7,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:28, name:"GreenTrees ACRE US", registry:"ACR", registryId:"ACR_ACR114", methodology:"Afforestation", vintage:2026, country:"US", region:"North America", sdgs:[15, 13, 1], issuedTotal:0, retiredTotal:4375433, description:"Forest Carbon. US. 616 retirements, 126 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:6,verificationQuality:8,coBenefits:7,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:29, name:"Big River / Salmon Creek Forests", registry:"CAR", registryId:"CAR_CAR408", methodology:"Afforestation", vintage:2026, country:"US", region:"North America", sdgs:[15, 13, 1], issuedTotal:0, retiredTotal:1349570, description:"Conservation-Based Forest Management. US. 108 retirements, 17 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:6,verificationQuality:7,coBenefits:7,methodologyMaturity:7,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
+  { id:30, name:"Titas Gas Bangladesh", registry:"Verra", registryId:"Verra_2478", methodology:"Methane Capture", vintage:2026, country:"Bangladesh", region:"South Asia", sdgs:[13, 7, 11], issuedTotal:3174810, retiredTotal:5764599, description:"Fugitive emissions from fuels (solid, oil and gas). Bangladesh. 745 retirements, 84 unique buyers.", attributes:{permanence:8,additionality:8,leakageRisk:8,verificationQuality:8,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.06, trend:-0.2 },
+  { id:31, name:"Hyundai Steel Waste Energy Korea", registry:"Verra", registryId:"Verra_786", methodology:"Methane Capture", vintage:2026, country:"South Korea", region:"Southeast Asia", sdgs:[13, 7, 11], issuedTotal:1999040, retiredTotal:11096238, description:"Energy industries (renewable/non-renewable sources); Manufac. South Korea. 719 retirements, 395 unique buyers.", attributes:{permanence:8,additionality:8,leakageRisk:8,verificationQuality:9,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.1 },
+  { id:32, name:"Bangladesh Brick Kiln Methane", registry:"Gold Standard", registryId:"Gold Standard_4210", methodology:"Methane Capture", vintage:2026, country:"Timor-Leste", region:"Southeast Asia", sdgs:[13, 7, 11], issuedTotal:0, retiredTotal:128573, description:"A/R. Timor-Leste. 1996 retirements, 19 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.4 },
+  { id:33, name:"Brazil Landfill Gas-to-Energy", registry:"Verra", registryId:"Verra_1560", methodology:"Methane Capture", vintage:2026, country:"India", region:"South Asia", sdgs:[13, 7, 11], issuedTotal:369475, retiredTotal:2666341, description:"Energy industries (renewable/non-renewable sources). India. 47 retirements, 4 unique buyers.", attributes:{permanence:8,additionality:8,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.3 },
+  { id:34, name:"Istanbul Landfill Gas Turkey", registry:"Gold Standard", registryId:"Gold Standard_707", methodology:"Methane Capture", vintage:2026, country:"Turkey", region:"Europe", sdgs:[13, 7, 11], issuedTotal:0, retiredTotal:7254884, description:"Other. Turkey. 3249 retirements, 70 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:8,verificationQuality:8,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:0.8 },
+  { id:35, name:"Santa Marta Landfill Chile", registry:"Gold Standard", registryId:"Gold Standard_3976", methodology:"Methane Capture", vintage:2026, country:"Chile", region:"Latin America", sdgs:[13, 7, 11], issuedTotal:0, retiredTotal:2923926, description:"Biogas - Electricity. Chile. 261 retirements, 37 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.2 },
+  { id:36, name:"Seneca Meadows LFG US", registry:"ACR", registryId:"ACR_ACR126", methodology:"Methane Capture", vintage:2026, country:"US", region:"North America", sdgs:[13, 7, 11], issuedTotal:0, retiredTotal:1704506, description:"Landfill Gas Capture & Combustion. US. 222 retirements, 21 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
+  { id:37, name:"South Kent Landfill Gas US", registry:"CAR", registryId:"CAR_CAR443", methodology:"Methane Capture", vintage:2026, country:"US", region:"North America", sdgs:[13, 7, 11], issuedTotal:0, retiredTotal:1423207, description:"Landfill Gas Capture/Combustion. US. 84 retirements, 9 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:9,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.2 },
+  { id:38, name:"Turkey Industrial Efficiency", registry:"Gold Standard", registryId:"Gold Standard_3450", methodology:"Energy Efficiency", vintage:2025, country:"Rwanda", region:"Southeast Asia", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:48526, description:"Energy Efficiency - Domestic. Rwanda. 130 retirements, 6 unique buyers.", attributes:{permanence:7,additionality:6,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:1.0 },
+  { id:39, name:"Clean Cooking & Heating China", registry:"Gold Standard", registryId:"Gold Standard_949", methodology:"Energy Efficiency", vintage:2026, country:"China", region:"Europe", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:1776852, description:"Energy Efficiency - Domestic. China. 1153 retirements, 0 unique buyers.", attributes:{permanence:7,additionality:6,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.2 },
+  { id:40, name:"Antai Waste Gas Recovery China", registry:"Gold Standard", registryId:"Gold Standard_605", methodology:"Energy Efficiency", vintage:2025, country:"China", region:"Europe", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:1543820, description:"Energy Efficiency - Industrial. China. 236 retirements, 6 unique buyers.", attributes:{permanence:7,additionality:6,leakageRisk:8,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.3 },
+  { id:41, name:"A-Gas Refrigerant Reclamation V6", registry:"ACR", registryId:"ACR_ACR676", methodology:"Energy Efficiency", vintage:2026, country:"US", region:"North America", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:1633593, description:"Industrial Process Emissions. US. 75 retirements, 29 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
+  { id:42, name:"Merit Energy Geo-Seq CCS", registry:"ACR", registryId:"ACR_ACR117", methodology:"Energy Efficiency", vintage:2025, country:"US", region:"North America", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:3492244, description:"Carbon Capture & Storage (CCS). US. 33 retirements, 4 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.3 },
+  { id:43, name:"El Dorado N2O Abatement", registry:"CAR", registryId:"CAR_CAR639", methodology:"Energy Efficiency", vintage:2025, country:"US", region:"North America", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:9933833, description:"Nitric Acid N2O- Secondary Catalyst. US. 108 retirements, 11 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.09, trend:1.0 },
+  { id:44, name:"RemTec ODS Destruction", registry:"CAR", registryId:"CAR_CAR691", methodology:"Energy Efficiency", vintage:2023, country:"US", region:"North America", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:2600638, description:"Ozone Depleting Substances - Article 5 Imports. US. 145 retirements, 10 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.0 },
+  { id:45, name:"Garcia River Forest Conservation", registry:"CAR", registryId:"CAR_CAR102", methodology:"Energy Efficiency", vintage:2023, country:"US", region:"North America", sdgs:[9, 13, 12], issuedTotal:0, retiredTotal:1316841, description:"Conservation-Based Forest Management. US. 356 retirements, 18 unique buyers.", attributes:{permanence:8,additionality:7,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
+  { id:46, name:"Soma-Polat Wind Farm Turkey", registry:"Gold Standard", registryId:"Gold Standard_398", methodology:"Renewable Energy", vintage:2026, country:"Turkey", region:"Europe", sdgs:[7, 13, 8], issuedTotal:0, retiredTotal:2195971, description:"Wind. Turkey. 535 retirements, 11 unique buyers.", attributes:{permanence:9,additionality:4,leakageRisk:9,verificationQuality:7,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:0.2 },
+  { id:47, name:"300MW Wind Energy India", registry:"Gold Standard", registryId:"Gold Standard_7468", methodology:"Renewable Energy", vintage:2026, country:"India", region:"South Asia", sdgs:[7, 13, 8], issuedTotal:0, retiredTotal:2038056, description:"Wind. India. 527 retirements, 90 unique buyers.", attributes:{permanence:9,additionality:4,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.11, trend:1.0 },
+  { id:48, name:"Grouped Hydro Chongqing China", registry:"Verra", registryId:"Verra_438", methodology:"Renewable Energy", vintage:2025, country:"China", region:"Europe", sdgs:[7, 13, 8], issuedTotal:716865, retiredTotal:6387197, description:"Energy industries (renewable/non-renewable sources). China. 650 retirements, 63 unique buyers.", attributes:{permanence:9,additionality:5,leakageRisk:9,verificationQuality:8,coBenefits:6,methodologyMaturity:10,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:0.6 },
+  { id:49, name:"Alto Mayo Conservation Initiative Peru", registry:"Verra", registryId:"Verra_944", methodology:"REDD+", vintage:2025, country:"Peru", region:"Latin America", sdgs:[13, 15, 1], issuedTotal:2842849, retiredTotal:6511891, description:"Agriculture Forestry and Other Land Use. Peru. 218 retirements, 29 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:7,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:0.4 },
+  { id:50, name:"Bale Mountains REDD+ Ethiopia", registry:"Verra", registryId:"Verra_1340", methodology:"REDD+", vintage:2026, country:"Ethiopia", region:"East Africa", sdgs:[13, 15, 1], issuedTotal:4438780, retiredTotal:8140252, description:"Agriculture Forestry and Other Land Use. Ethiopia. 100 retirements, 10 unique buyers.", attributes:{permanence:6,additionality:7,leakageRisk:5,verificationQuality:7,coBenefits:8,methodologyMaturity:8,bufferAdequacy:6,regulatoryAlignment:6}, volatility:0.12, trend:-0.5 },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -261,6 +288,10 @@ function enrichProjects(buyerWeights, demandSignals) {
     const similarCount = RAW_PROJECTS.filter(q => q.id !== p.id && (q.methodology === p.methodology || q.region === p.region)).length;
     const priceConfidence = similarCount >= 6 ? "High" : similarCount >= 3 ? "Medium" : "Low";
 
+    // V4: Attach real retirement data from pre-computed JSON
+    const retKey = `${p.registry}_${p.registryId?.split("_")[1] || p.registryId}`;
+    const realRetData = retirementData[retKey] || retirementData[p.registryId] || null;
+
     return {
       ...p,
       marketFairValue: pricing.marketFairValue,
@@ -272,6 +303,8 @@ function enrichProjects(buyerWeights, demandSignals) {
       fairValue: pricing.buyerAdjustedValue, // backward compat
       currentPrice, priceHistory, spread, signal, overallScore,
       retirementRate, demandSignal, momentum, priceConfidence,
+      // V4: Real retirement data
+      realRetirementData: realRetData,
     };
   });
 }
@@ -929,39 +962,128 @@ function ProjectEvaluationTab({ projects, profile, weights, portfolio, setPortfo
                   </div>
                 </div>
               )}
-              {tab === "volume" && (
+              {tab === "volume" && (() => {
+                const rd = selected.realRetirementData;
+                const timeline = rd?.annual_retirement_timeline || [];
+                const issTimeline = rd?.annual_issuance_timeline || [];
+                const topBuyers = rd?.top_buyers || [];
+                const recentRet = rd?.recent_retirements || [];
+                const demandConc = rd?.demand_concentration_top3_pct || 0;
+                const totalRet = rd?.total_retired || selected.retiredTotal || 0;
+                const totalIss = rd?.total_issued || selected.issuedTotal || 0;
+                const uniqueBuyers = rd?.unique_buyers || 0;
+                const totalRetCount = rd?.total_retirements || 0;
+
+                // Build combined annual chart data
+                const yearMap = {};
+                for (const t of issTimeline) { yearMap[t.year] = { year: t.year, issued: t.issued_volume, retired: 0 }; }
+                for (const t of timeline) { if (!yearMap[t.year]) yearMap[t.year] = { year: t.year, issued: 0, retired: 0 }; yearMap[t.year].retired = t.retired_volume; }
+                const chartData = Object.values(yearMap).sort((a, b) => a.year.localeCompare(b.year));
+
+                return (
                 <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-700 mb-1">Issuance vs. Retirement (Demand Signal)</h4>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <ComposedChart data={selected.priceHistory} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="month" tick={{ fontSize: 9 }} />
-                        <YAxis yAxisId="vol" tick={{ fontSize: 9 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-                        <YAxis yAxisId="trades" orientation="right" tick={{ fontSize: 9 }} />
-                        <Tooltip formatter={(v, n) => [n === "trades" ? v : v.toLocaleString(), n]} />
-                        <Bar yAxisId="vol" dataKey="issuance" fill="#CBD5E1" name="Issued" radius={[2, 2, 0, 0]} />
-                        <Bar yAxisId="vol" dataKey="retirement" fill="#3B82F6" name="Retired" radius={[2, 2, 0, 0]} />
-                        <Line yAxisId="trades" type="monotone" dataKey="trades" stroke="#F59E0B" strokeWidth={2} dot={false} name="Trades/mo" />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2.5">
+                  {/* Summary stats */}
+                  <div className="grid grid-cols-5 gap-2">
                     {[
-                      { label: "Total Issued", value: `${(selected.issuedTotal / 1e6).toFixed(2)}M`, sub: "tCO\u2082e" },
-                      { label: "Total Retired", value: `${(selected.retiredTotal / 1e6).toFixed(2)}M`, sub: "tCO\u2082e" },
-                      { label: "Retirement Rate", value: `${selected.retirementRate}%`, sub: "demand signal" },
-                      { label: "Price Momentum", value: `${selected.momentum > 0 ? "+" : ""}${selected.momentum}%`, sub: "3mo vs prior 3mo", color: selected.momentum > 0 ? "text-emerald-700" : "text-red-600" },
+                      { label: "Total Issued", value: totalIss > 1e6 ? `${(totalIss / 1e6).toFixed(1)}M` : `${(totalIss / 1e3).toFixed(0)}K`, sub: "tCO\u2082e" },
+                      { label: "Total Retired", value: totalRet > 1e6 ? `${(totalRet / 1e6).toFixed(1)}M` : `${(totalRet / 1e3).toFixed(0)}K`, sub: "tCO\u2082e" },
+                      { label: "Retirements", value: totalRetCount.toLocaleString(), sub: "transactions" },
+                      { label: "Unique Buyers", value: uniqueBuyers.toLocaleString(), sub: "identified" },
+                      { label: "Top 3 Conc.", value: `${demandConc}%`, sub: "of volume", color: demandConc > 60 ? "text-red-600" : demandConc > 40 ? "text-amber-600" : "text-emerald-600" },
                     ].map((s, i) => (
-                      <div key={i} className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
+                      <div key={i} className="bg-gray-50 rounded-lg p-2.5 text-center border border-gray-200">
                         <p className="text-xs text-gray-500">{s.label}</p>
                         <p className={`text-lg font-bold ${s.color || "text-gray-900"}`}>{s.value}</p>
                         <p className="text-xs text-gray-400">{s.sub}</p>
                       </div>
                     ))}
                   </div>
+
+                  {/* Annual issuance vs retirement chart */}
+                  {chartData.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700 mb-1">Annual Issuance vs. Retirement (Real Data)</h4>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <ComposedChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="year" tick={{ fontSize: 9 }} />
+                          <YAxis tick={{ fontSize: 9 }} tickFormatter={v => v > 1e6 ? `${(v/1e6).toFixed(1)}M` : `${(v/1e3).toFixed(0)}K`} />
+                          <Tooltip formatter={(v) => [v.toLocaleString() + " tCO\u2082e"]} />
+                          <Bar dataKey="issued" fill="#CBD5E1" name="Issued" radius={[2, 2, 0, 0]} />
+                          <Bar dataKey="retired" fill="#3B82F6" name="Retired" radius={[2, 2, 0, 0]} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Top buyers table */}
+                  {topBuyers.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700 mb-2">Top Buyers (Real Registry Data)</h4>
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <th className="text-left py-2 px-3 text-gray-500 font-medium">Buyer</th>
+                              <th className="text-right py-2 px-3 text-gray-500 font-medium">Credits Retired</th>
+                              <th className="text-right py-2 px-3 text-gray-500 font-medium">Transactions</th>
+                              <th className="text-right py-2 px-3 text-gray-500 font-medium">Active</th>
+                              <th className="text-right py-2 px-3 text-gray-500 font-medium">% of Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {topBuyers.slice(0, 10).map((b, i) => (
+                              <tr key={i} className="border-b border-gray-100 hover:bg-blue-50">
+                                <td className="py-1.5 px-3 font-medium text-gray-800 truncate max-w-[200px]">{b.name}</td>
+                                <td className="py-1.5 px-3 text-right font-mono text-gray-700">{b.total_credits.toLocaleString()}</td>
+                                <td className="py-1.5 px-3 text-right text-gray-600">{b.retirement_count}</td>
+                                <td className="py-1.5 px-3 text-right text-gray-500">{b.first_year}{b.last_year && b.last_year !== b.first_year ? `\u2013${b.last_year}` : ""}</td>
+                                <td className="py-1.5 px-3 text-right font-mono text-gray-600">{totalRet > 0 ? ((b.total_credits / totalRet) * 100).toFixed(1) : 0}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent retirements */}
+                  {recentRet.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700 mb-2">Recent Retirements</h4>
+                      <div className="border border-gray-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-gray-50">
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-1.5 px-3 text-gray-500 font-medium">Date</th>
+                              <th className="text-right py-1.5 px-3 text-gray-500 font-medium">Credits</th>
+                              <th className="text-left py-1.5 px-3 text-gray-500 font-medium">Buyer</th>
+                              <th className="text-left py-1.5 px-3 text-gray-500 font-medium">Vintage</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {recentRet.map((r, i) => (
+                              <tr key={i} className="border-b border-gray-100">
+                                <td className="py-1 px-3 text-gray-600">{r.date}</td>
+                                <td className="py-1 px-3 text-right font-mono text-gray-700">{r.qty.toLocaleString()}</td>
+                                <td className="py-1 px-3 text-gray-800 truncate max-w-[180px]">{r.buyer || "Undisclosed"}</td>
+                                <td className="py-1 px-3 text-gray-500">{r.vintage || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {!rd && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                      <p className="text-sm text-amber-800">No registry retirement data available for this project.</p>
+                    </div>
+                  )}
                 </div>
-              )}
+                );
+              })()}
             </div>
           )}
         </div>
